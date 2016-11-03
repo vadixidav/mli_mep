@@ -13,4 +13,4 @@ rand = "0.3.13"
 num = "0.1.30"
 serde = "0.8"
 serde_derive = "0.8"
-mli = "0.9"
+mli = {git = "https://github.com/vadixidav/mli"}
