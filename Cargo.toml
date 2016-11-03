@@ -1,11 +1,16 @@
 [package]
 name = "mli_mep"
 version = "0.9.0"
+description = "Multi Expression Program implementation for mli"
+documentation = "https://docs.rs/mli_mep/0.9.0/mli_mep/"
+repository = "https://github.com/vadixidav/mli_mep"
 authors = ["Geordon Worley <vadixidav@gmail.com>"]
+keywords = ["mli", "mep", "genetic", "algorithm", "learning"]
+license = "Unlicense"
 
 [dependencies]
 rand = "0.3.13"
 num = "0.1.30"
 serde = "0.8"
 serde_derive = "0.8"
-mli = {git = "https://github.com/vadixidav/mli"}
+mli = "0.9"
