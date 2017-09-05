@@ -1,6 +1,6 @@
 [package]
 name = "mli_mep"
-version = "0.9.0"
+version = "0.10.0"
 description = "Multi Expression Program implementation for mli"
 documentation = "https://docs.rs/mli_mep/0.9.0/mli_mep/"
 repository = "https://github.com/vadixidav/mli_mep"
@@ -11,6 +11,6 @@ license = "Unlicense"
 [dependencies]
 rand = "0.3.13"
 num = "0.1.30"
-serde = "0.8"
-serde_derive = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
 mli = {git = "https://github.com/vadixidav/mli"}

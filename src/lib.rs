@@ -1,10 +1,6 @@
-#![feature(plugin)]
-#![feature(proc_macro)]
-
 #[macro_use]
 extern crate serde_derive;
 extern crate rand;
-extern crate num;
 extern crate mli;
 
 use std::collections::BTreeSet;
@@ -47,15 +43,17 @@ impl<Ins> Mep<Ins> {
     /// `crossover_points` corresponds to the maximum amount of crossover locations on the
     /// chromosome when mating. When mating the `crossover_points` is chosen randomly between the
     /// two Meps.
-    pub fn new<R>(inputs: usize,
-                  outputs: usize,
-                  internal_instruction_count: usize,
-                  mutate_lambda: usize,
-                  crossover_points: usize,
-                  rng: &mut R)
-                  -> Self
-        where R: Rng,
-              Ins: Rand
+    pub fn new<R>(
+        inputs: usize,
+        outputs: usize,
+        internal_instruction_count: usize,
+        mutate_lambda: usize,
+        crossover_points: usize,
+        rng: &mut R,
+    ) -> Self
+    where
+        R: Rng,
+        Ins: Rand,
     {
         Mep {
             program: (0..internal_instruction_count + outputs)
@@ -82,8 +80,9 @@ impl<Ins> Mep<Ins> {
 }
 
 impl<Ins, R> MateRand<R> for Mep<Ins>
-where R: Rng,
-      Ins: Clone
+where
+    R: Rng,
+    Ins: Clone,
 {
     fn mate(&self, rhs: &Self, rng: &mut R) -> Self {
         // Each Mep must have the same amount of inputs
@@ -139,8 +138,9 @@ where R: Rng,
 }
 
 impl<Ins, R> Mutate<R> for Mep<Ins>
-where Ins: Mutate<R>,
-      R: Rng
+where
+    Ins: Mutate<R>,
+    R: Rng,
 {
     fn mutate(&mut self, rng: &mut R) {
         // For this entire cycle, the biased lambda from the previous cycle is effective.
@@ -180,18 +180,22 @@ where Ins: Mutate<R>,
             // Randomly mutate only one of the things contained here.
             match rng.gen_range(0, 3) {
                 0 => op.instruction.mutate(rng),
-                1 => op.first = if choice > plen  - self.outputs {
-                    // Handle the case where an output is selected.
-                    rng.gen_range(0, choice + plen  - self.outputs)
-                } else {
-                    rng.gen_range(0, choice + self.inputs)
-                },
-                _ => op.second = if choice > plen  - self.outputs {
-                    // Handle the case where an output is selected.
-                    rng.gen_range(0, choice + plen  - self.outputs)
-                } else {
-                    rng.gen_range(0, choice + self.inputs)
-                },
+                1 => {
+                    op.first = if choice > plen - self.outputs {
+                        // Handle the case where an output is selected.
+                        rng.gen_range(0, choice + plen - self.outputs)
+                    } else {
+                        rng.gen_range(0, choice + self.inputs)
+                    }
+                }
+                _ => {
+                    op.second = if choice > plen - self.outputs {
+                        // Handle the case where an output is selected.
+                        rng.gen_range(0, choice + plen - self.outputs)
+                    } else {
+                        rng.gen_range(0, choice + self.inputs)
+                    }
+                }
             }
         }
     }
@@ -213,8 +217,9 @@ where Param: Clone
 }
 
 pub struct ResultIterator<'a, Ins, Param>
-    where Ins: 'a,
-          Param: 'a
+where
+    Ins: 'a,
+    Param: 'a,
 {
     mep: &'a Mep<Ins>,
     buff: Vec<Option<Param>>,
@@ -225,8 +230,9 @@ pub struct ResultIterator<'a, Ins, Param>
 impl<'a, Ins, Param> ResultIterator<'a, Ins, Param> {
     #[inline]
     fn op_solved(&mut self, i: usize) -> Param
-        where Param: Clone,
-              Ins: Stateless<'a, (Param, Param), Param>
+    where
+        Param: Clone,
+        Ins: Stateless<'a, (Param, Param), Param>,
     {
         // If this is an input, it is already solved, so return the result immediately.
         if i < self.mep.inputs {
@@ -242,8 +248,10 @@ impl<'a, Ins, Param> ResultIterator<'a, Ins, Param> {
                 // Get a reference to the opcode.
                 let op = unsafe { self.mep.program.get_unchecked(i - self.mep.inputs) };
                 // Compute the result of the operation, ensuring the inputs are solved beforehand.
-                let result = op.instruction
-                    .process((self.op_solved(op.first), self.op_solved(op.second)));
+                let result = op.instruction.process((
+                    self.op_solved(op.first),
+                    self.op_solved(op.second),
+                ));
                 // Properly store the Some result to the buffer.
                 unsafe { *self.buff.get_unchecked_mut(i - self.mep.inputs) = Some(result.clone()) };
                 // Return the result.
