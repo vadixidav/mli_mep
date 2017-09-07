@@ -144,7 +144,7 @@ where
 {
     fn mutate(&mut self, rng: &mut R) {
         // For this entire cycle, the biased lambda from the previous cycle is effective.
-        let effective_lambda = self.mutate_lambda + 1;
+        let effective_lambda = self.mutate_lambda.saturating_add(1);
 
         // Mutate `mutate_lambda`.
         if rng.gen_range(0, effective_lambda) == 0 {
@@ -169,8 +169,7 @@ where
 
         // Mutate the instructions.
         loop {
-            // Choose a random location in the instructions and then add a random value.
-            // up to the unit_mutate_size.
+            // Choose a random location in the instructions.
             let choice = rng.gen_range(0, plen + effective_lambda);
             // Whenever we choose a location outside the vector reject the choice and end mutation.
             if choice >= plen {
@@ -181,17 +180,17 @@ where
             match rng.gen_range(0, 3) {
                 0 => op.instruction.mutate(rng),
                 1 => {
-                    op.first = if choice > plen - self.outputs {
+                    op.first = if choice >= plen - self.outputs {
                         // Handle the case where an output is selected.
-                        rng.gen_range(0, choice + plen - self.outputs)
+                        rng.gen_range(0, self.inputs + plen - self.outputs)
                     } else {
                         rng.gen_range(0, choice + self.inputs)
                     }
                 }
                 _ => {
-                    op.second = if choice > plen - self.outputs {
+                    op.second = if choice >= plen - self.outputs {
                         // Handle the case where an output is selected.
-                        rng.gen_range(0, choice + plen - self.outputs)
+                        rng.gen_range(0, self.inputs + plen - self.outputs)
                     } else {
                         rng.gen_range(0, choice + self.inputs)
                     }
@@ -279,7 +278,6 @@ where Param: Clone,
 mod tests {
     use rand::{Isaac64Rng, SeedableRng, Rand};
     use super::*;
-    use super::super::{MateRand, Mutate, Stateless};
 
     #[derive(Clone)]
     struct Op;
