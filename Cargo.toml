@@ -1,6 +1,6 @@
 [package]
 name = "mli_mep"
-version = "0.10.0"
+version = "0.10.1"
 description = "Multi Expression Program implementation for mli"
 documentation = "https://docs.rs/mli_mep/"
 repository = "https://github.com/vadixidav/mli_mep"
