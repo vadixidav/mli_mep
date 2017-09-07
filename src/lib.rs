@@ -95,10 +95,10 @@ where
         Mep {
             program:
             // Generate a randomly sized sequence between 1 and the minimum between
-            // `crossover_points` vs `total_instructions / 2`.
-            (0..rng.gen_range(1, cmp::min(total_instructions / 2, {
+            // `crossover_points + 1` vs `total_instructions / 2`.
+            (0..rng.gen_range(1, cmp::min(total_instructions / 2 + 2, {
                 if crossover_choice == 0 {self}
-                    else {rhs}}.crossover_points + 1)))
+                    else {rhs}}.crossover_points + 2)))
                 // Map these to random crossover points.
                 .map(|_| rng.gen_range(0, total_instructions))
                 // Add total_instructions at the end so we can generate a range with it.
