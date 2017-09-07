@@ -96,9 +96,9 @@ where
             program:
             // Generate a randomly sized sequence between 1 and the minimum between
             // `crossover_points + 1` vs `total_instructions / 2`.
-            (0..rng.gen_range(1, cmp::min(total_instructions / 2 + 2, {
+            (0..rng.gen_range(1, cmp::min((total_instructions / 2).saturating_add(2), {
                 if crossover_choice == 0 {self}
-                    else {rhs}}.crossover_points + 2)))
+                    else {rhs}}.crossover_points.saturating_add(2))))
                 // Map these to random crossover points.
                 .map(|_| rng.gen_range(0, total_instructions))
                 // Add total_instructions at the end so we can generate a range with it.
@@ -120,15 +120,15 @@ where
                 .collect(),
 
             mutate_lambda: if self.mutate_lambda < rhs.mutate_lambda {
-                rng.gen_range(self.mutate_lambda, rhs.mutate_lambda + 1)
+                rng.gen_range(self.mutate_lambda, rhs.mutate_lambda.saturating_add(1))
             } else {
-                rng.gen_range(rhs.mutate_lambda, self.mutate_lambda + 1)
+                rng.gen_range(rhs.mutate_lambda, self.mutate_lambda.saturating_add(1))
             },
 
             crossover_points: if self.crossover_points < rhs.crossover_points {
-                rng.gen_range(self.crossover_points, rhs.crossover_points + 1)
+                rng.gen_range(self.crossover_points, rhs.crossover_points.saturating_add(1))
             } else {
-                rng.gen_range(rhs.crossover_points, self.crossover_points + 1)
+                rng.gen_range(rhs.crossover_points, self.crossover_points.saturating_add(1))
             },
 
             inputs: self.inputs,
@@ -170,7 +170,7 @@ where
         // Mutate the instructions.
         loop {
             // Choose a random location in the instructions.
-            let choice = rng.gen_range(0, plen + effective_lambda);
+            let choice = rng.gen_range(0, plen.saturating_add(effective_lambda));
             // Whenever we choose a location outside the vector reject the choice and end mutation.
             if choice >= plen {
                 break;
