@@ -309,6 +309,6 @@ mod tests {
         let c = a.mate(&b, &mut rng);
 
         let inputs = [2i32, 3, 4];
-        c.process(&inputs[..]).collect::<Vec<_>>();
+        assert_eq!(c.process(&inputs[..]).collect::<Vec<_>>(), vec![52]);
     }
 }
