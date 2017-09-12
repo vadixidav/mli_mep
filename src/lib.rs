@@ -7,7 +7,6 @@ use std::collections::BTreeSet;
 use std::cmp;
 use rand::{Rng, Rand};
 use std::ops::Range;
-use std::iter::Rev;
 use mli::{Stateless, MateRand, Mutate};
 
 /// Defines an opcode for the Mep. Every opcode contains an instruction and two parameter indices.
@@ -55,6 +54,7 @@ impl<Ins> Mep<Ins> {
         R: Rng,
         Ins: Rand,
     {
+        assert_ne!(outputs, 0);
         Mep {
             program: (0..internal_instruction_count + outputs)
                 .map(|i| if i < internal_instruction_count {
@@ -204,12 +204,12 @@ impl<'a, Ins, Param> Stateless<'a, &'a [Param], ResultIterator<'a, Ins, Param>> 
 where Param: Clone
 {
     fn process(&'a self, inputs: &'a [Param]) -> ResultIterator<'a, Ins, Param> {
+        // The input slice must be the same size as inputs.
+        assert_eq!(inputs.len(), self.inputs);
         ResultIterator {
             mep: self,
             buff: vec![None; self.program.len()],
-            solve_iter: ((self.program.len() + self.inputs - self.outputs)..(self.program.len() +
-                self.inputs))
-                .rev(),
+            solve_iter: self.program.len() + self.inputs - self.outputs .. self.program.len() + self.inputs,
             inputs: inputs,
         }
     }
@@ -222,41 +222,78 @@ where
 {
     mep: &'a Mep<Ins>,
     buff: Vec<Option<Param>>,
-    solve_iter: Rev<Range<usize>>,
+    solve_iter: Range<usize>,
     inputs: &'a [Param],
 }
 
 impl<'a, Ins, Param> ResultIterator<'a, Ins, Param> {
     #[inline]
-    fn op_solved(&mut self, i: usize) -> Param
+    fn op_solved(&mut self, op_pos: usize) -> Param
     where
         Param: Clone,
         Ins: Stateless<'a, (Param, Param), Param>,
     {
-        // If this is an input, it is already solved, so return the result immediately.
-        if i < self.mep.inputs {
-            return unsafe { self.inputs.get_unchecked(i) }.clone();
-        }
-        // Check if this has been evaluated or not.
-        let possible = unsafe { self.buff.get_unchecked(i - self.mep.inputs) }.clone();
-        match possible {
-            // If it has, return the value.
-            Some(x) => x,
-            // If it hasn't been solved.
-            None => {
-                // Get a reference to the opcode.
-                let op = unsafe { self.mep.program.get_unchecked(i - self.mep.inputs) };
-                // Compute the result of the operation, ensuring the inputs are solved beforehand.
-                let result = op.instruction.process((
-                    self.op_solved(op.first),
-                    self.op_solved(op.second),
-                ));
-                // Properly store the Some result to the buffer.
-                unsafe { *self.buff.get_unchecked_mut(i - self.mep.inputs) = Some(result.clone()) };
-                // Return the result.
-                result
+        use std::mem;
+        // Stack for things which we still need to check if their parameters are solved.
+        let mut to_solve_stack = Vec::with_capacity(self.mep.inputs + self.mep.program.len());
+        // Stack for things which need to be solved starting from the end (in reverse).
+        let mut solve_stack = Vec::with_capacity(self.mep.inputs + self.mep.program.len());
+
+        let primary_op = unsafe { self.mep.program.get_unchecked(op_pos - self.mep.inputs) }
+            .clone();
+        to_solve_stack.push(primary_op.first);
+        to_solve_stack.push(primary_op.second);
+
+        while let Some(to_solve) = to_solve_stack.pop() {
+            if to_solve >= self.mep.inputs {
+                let op = unsafe { self.mep.program.get_unchecked(to_solve - self.mep.inputs) };
+                to_solve_stack.push(op.first);
+                to_solve_stack.push(op.second);
+                solve_stack.push(to_solve);
             }
         }
+
+        for i in solve_stack.into_iter().rev() {
+            let ibuff: &mut Option<Param> = unsafe {
+                mem::transmute(self.buff.get_unchecked_mut(i - self.mep.inputs) as *mut _)
+            };
+            if ibuff.is_none() {
+                let op = unsafe { self.mep.program.get_unchecked(i - self.mep.inputs) }.clone();
+                *ibuff = Some(op.instruction.process((
+                    if op.first < self.mep.inputs {
+                        unsafe { self.inputs.get_unchecked(op.first).clone() }
+                    } else {
+                        unsafe { self.buff.get_unchecked(op.first - self.mep.inputs) }
+                            .clone()
+                            .unwrap()
+                    },
+                    if op.second < self.mep.inputs {
+                        unsafe { self.inputs.get_unchecked(op.second).clone() }
+                    } else {
+                        unsafe { self.buff.get_unchecked(op.second - self.mep.inputs) }
+                            .clone()
+                            .unwrap()
+                    },
+                )));
+            }
+        }
+
+        primary_op.instruction.process((
+            if primary_op.first < self.mep.inputs {
+                unsafe { self.inputs.get_unchecked(primary_op.first).clone() }
+            } else {
+                unsafe { self.buff.get_unchecked(primary_op.first - self.mep.inputs) }
+                    .clone()
+                    .unwrap()
+            },
+            if primary_op.second < self.mep.inputs {
+                unsafe { self.inputs.get_unchecked(primary_op.second).clone() }
+            } else {
+                unsafe { self.buff.get_unchecked(primary_op.second - self.mep.inputs) }
+                    .clone()
+                    .unwrap()
+            },
+        ))
     }
 }
 
@@ -270,6 +307,14 @@ where Param: Clone,
         match self.solve_iter.next() {
             None => None,
             Some(i) => Some(self.op_solved(i)),
+        }
+    }
+}
+
+impl<'a, Ins, Param> Drop for ResultIterator<'a, Ins, Param> {
+    fn drop(&mut self) {
+        if self.solve_iter.next().is_some() {
+            panic!("error: didn't use all results from output iterator of mli_mep::Mep");
         }
     }
 }
