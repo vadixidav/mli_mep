@@ -32,12 +32,21 @@ pub struct Mep<Ins> {
 }
 
 impl<Ins> Mep<Ins> {
-    /// Generates a new Mep with a particular size and takes a closure to generate random
-    /// instructions. Takes an RNG as well to generate random internal data for each instruction.
+    /// Generates a new Mep with a particular size. Takes an RNG as well to generate random instructions using
+    /// the instruction's `Rng` implementation.
+    ///
+    /// `inputs` determines exactly how many inputs will be passed each time processing is done. Anything else will
+    /// panic.
+    ///
+    /// `outputs` determines exactly how many outputs will be consumed each time processing is done. Anything else will
+    /// panic.
+    ///
+    /// `internal_instruction_count` determines how many instructions aren't used for outputs, but just do internal
+    /// processing (hidden instructions).
     ///
     /// `mutate_lambda` corresponds to the lambda of a poisson distribution. It is proportional
-    /// to the average unit mutate cycles between mutations. It is biased by 1, so a `mutate_lambda`
-    /// of 0 means it will be mutated every cycle.
+    /// to the average unit mutate cycles between mutations. It is biased by `1`, so a `mutate_lambda`
+    /// of `0` means, on average, the instruction distance between mutations is about `1`.
     ///
     /// `crossover_points` corresponds to the maximum amount of crossover locations on the
     /// chromosome when mating. When mating the `crossover_points` is chosen randomly between the
@@ -204,6 +213,8 @@ impl<'a, Ins, Param> Stateless<'a, &'a [Param], ResultIterator<'a, Ins, Param>> 
 where Param: Clone
 {
     fn process(&'a self, inputs: &'a [Param]) -> ResultIterator<'a, Ins, Param> {
+        //! Takes an input slice which must be exactly equal in length to `self.inputs`, or it will panic.
+        //! Produces an iterator which must be entirely consumed or else it will panic on drop().
         // The input slice must be the same size as inputs.
         assert_eq!(inputs.len(), self.inputs);
         ResultIterator {
@@ -325,29 +336,29 @@ mod tests {
     use super::*;
 
     #[derive(Clone)]
-    struct Op;
+    struct AddOp;
 
-    impl<R> Mutate<R> for Op {
+    impl<R> Mutate<R> for AddOp {
         fn mutate(&mut self, _: &mut R) {}
     }
 
-    impl<'a> Stateless<'a, (i32, i32), i32> for Op {
+    impl<'a> Stateless<'a, (i32, i32), i32> for AddOp {
         fn process(&'a self, inputs: (i32, i32)) -> i32 {
             inputs.0 + inputs.1
         }
     }
 
-    impl Rand for Op {
+    impl Rand for AddOp {
         fn rand<R>(_: &mut R) -> Self {
-            Op
+            AddOp
         }
     }
 
     #[test]
-    fn mep() {
+    fn mep_add_op() {
         let mut rng = Isaac64Rng::from_seed(&[1, 2, 3, 4]);
         let (mut a, b) = {
-            let mut clos = || Mep::<Op>::new(3, 1, 10, 10, 10, &mut rng);
+            let mut clos = || Mep::<AddOp>::new(3, 1, 10, 10, 10, &mut rng);
             (clos(), clos())
         };
         a.mutate(&mut rng);
